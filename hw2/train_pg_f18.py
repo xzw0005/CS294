@@ -296,7 +296,7 @@ def main():
             train_PG(exp_name=args.exp_name, env_name=args.env_name, n_iter=args.n_iter, \
                      gamma=args.discount, mint_timesteps_per_batch=args.batch_size, \
                      max_path_length=max_path_length, learning_rate=args.learning_rate, \
-                     reward_to_go=args.reward_to_go, animate=args.animate, \
+                     reward_to_go=args.reward_to_go, animate=args.render, \
                      logdir=os.path.join(logdir, '%d'%seed), \
                      normalize_advantages=not(args.dont_normalize_advantages), \
                      nn_baseline=args.nn_baseline, seed=seed, n_layers=args.n_layers, size=args.size)
