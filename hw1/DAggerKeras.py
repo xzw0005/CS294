@@ -3,11 +3,7 @@ Created on Oct 26, 2018
 
 @author: wangxing
 '''
-'''
-Created on Oct 26, 2018
 
-@author: wangxing
-'''
 import pickle
 import tensorflow as tf
 import numpy as np
