@@ -224,7 +224,7 @@ def train_PG(exp_name, env_name, n_iter, \
     estimate_return_args = {'gamma': gamma, 'reward_to_go': reward_to_go, \
                             'nn_baseline': nn_baseline, 'normalize_advantages': normalize_advantages}
     agent = Agent(computation_graph_args, sample_trajectory_args, estimate_return_args)
-    agent.build_computaion_graph()
+    agent.build_computation_graph()
     agent.init_tf_sess()
     
     ## Training Loop
