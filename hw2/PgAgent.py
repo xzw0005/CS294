@@ -5,7 +5,7 @@ Created on Dec 16, 2018
 '''
 import numpy as np 
 import tensorflow as tf 
-# from train_pg_f18 import *
+import time
 
 class Agent(object):
     
@@ -34,7 +34,7 @@ class Agent(object):
         tf_config = tf.ConfigProto(inter_op_parallelism_threads=1, intra_op_parallelism_threads=1)
         self.sess = tf.Session(config=tf_config)
         self.sess.__enter__()   # equivalent to "with self.sess:"
-        tf.global_variables_initializer()
+        tf.global_variables_initializer().run()
     
     def build_computation_graph(self):
         """
@@ -43,9 +43,16 @@ class Agent(object):
         self.sy_obs_no, self.sy_act_na, self.sy_adv_n = self.define_placeholders()
         self.policy_parameters = self.policy_forward_pass(self.sy_obs_no)
         self.sy_sampled_act = self.sample_action(self.policy_parameters)
-        self.sy_logprob_n = self.get_log_probs(self.policy_parameters, self.sy_act_na)
+        self.sy_logprob_n = self.get_log_prob(self.policy_parameters, self.sy_act_na)
         loss = tf.reduce_mean(-self.sy_logprob_n * self.sy_adv_n)
         self.update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        if self.nn_baseline:
+            self.baseline_prediction = tf.squeeze(
+                    self.build_mlp(input_placeholder=self.sy_obs_no, output_size=1, scope="nn_baseline", n_layers=self.n_layers, size=self.size)
+                )
+            self.sy_target_n = tf.placeholder(dtype=tf.float32, shape=[None], name="baseline_target")
+            baseline_loss = tf.nn.l2_loss(self.sy_target_n - self.baseline_prediction)
+            self.baseline_update_op = tf.train.AdamOptimizer(self.learning_rate).minimize(baseline_loss)
         
     def define_placeholders(self):
         """
@@ -66,9 +73,17 @@ class Agent(object):
             sy_act_na = tf.placeholder(dtype=tf.float32, shape=[None, self.act_dim], name='act')
         sy_adv_n = tf.placeholder(dtype=tf.float32, shape=[None], name='adv')
         return sy_obs_no, sy_act_na, sy_adv_n
-    
+
+    def build_mlp(self, input_placeholder, output_size, scope, n_layers, size, activation=tf.tanh, output_activation=None):
+        x = input_placeholder
+        with tf.variable_scope(scope):
+            for _ in range(n_layers):
+                x = tf.layers.dense(x, size, activation=activation)
+            x = tf.layers.dense(x, output_size, activation=output_activation)
+        return x
+
     def policy_forward_pass(self, sy_obs_no):
-        logits = build_mlp(input_placeholder=sy_obs_no, output_size=self.act_dim, \
+        logits = self.build_mlp(input_placeholder=sy_obs_no, output_size=self.act_dim, \
                            scope='policy_model', n_layers=self.n_layers, size=self.size)
         if self.discrete:       # NN outputs the logits of a categorical distribution
             sy_logits_na = logits
@@ -105,7 +120,7 @@ class Agent(object):
             if animate_this_episode:
                 env.render()
                 time.sleep(0.1)
-            a = self.sess.run(self.sy_sampled_act, feed_dict={self.sy_obs_no:s.reshape[1, self.obs_dim]})
+            a = self.sess.run(self.sy_sampled_act, feed_dict={self.sy_obs_no: s[None]})#s.reshape[1, self.obs_dim]}) 
             a = a[0]
             sp, r, done, _ = env.step(a)
             observations.append(s)
@@ -127,7 +142,7 @@ class Agent(object):
             animate_this_episode = (self.animate and len(paths)==0 and itr%10 == 0)
             path = self.sample_trajectory(env, animate_this_episode)
             paths.append(path)
-            timesteps_this_batch += pathlength(path)
+            timesteps_this_batch += len(path['reward']) #pathlength(path)
             if timesteps_this_batch > self.min_timesteps_per_batch:
                 break
         return paths, timesteps_this_batch
@@ -135,8 +150,9 @@ class Agent(object):
     def estimate_return(self, obs_no, ret_n):
         Q_n = self.sum_of_rewards(ret_n)
         adv_n = self.compute_advantage(obs_no, Q_n)
+#         print(np.array(adv_n).shape)
         if self.normalize_advantages:
-            raise NotImplementedError
+            adv_n = (adv_n - np.mean(adv_n)) / (np.std(adv_n) + 1e-8)
         return Q_n, adv_n
 
     def sum_of_rewards(self, ret_n):
@@ -147,21 +163,21 @@ class Agent(object):
             for r in reversed(path_rewards):
                 q = r + self.gamma * q 
                 q_path.append(q)
-            if not self.reward_to_go:       # Case 1: Trajectory-based PG
-            # Use the total discounted sum of rewards for entire trajectory, i.e. Q_t = Ret(tau)
-            # where Ret(tau) = sum_{t'=0}^T gamma^t' r(t')
-            # Estimated gradient is E_{tau} [sum_{t=0}^T grad log pi(a_t|s_t) * Ret(tau)]
+            if self.reward_to_go:       # Case 1: Reward-to-go PG 
                 q_path.reverse()
-            else:                            # Case 2: Reward-to-go PG
-            # Estimate Q^{pi}(s_t, a_t) by the discounted sum of rewards starting from t
+                # Estimate Q^{pi}(s_t, a_t) by the discounted sum of rewards starting from t
+            else:                       # Case 2: Trajectory-based PG
                 q_path = [q for _ in range(len(path_rewards))]
+                # Use the total discounted sum of rewards for entire trajectory, i.e. Q_t = Ret(tau)
+                # where Ret(tau) = sum_{t'=0}^T gamma^t' r(t')
+                # Estimated gradient is E_{tau} [sum_{t=0}^T grad log pi(a_t|s_t) * Ret(tau)]
             q_n.extend(q_path)
         return q_n
     
     def compute_advantage(self, obs_no, q_n):
         if self.nn_baseline:
-            raise NotImplementedError
-            b_n = None
+            b_n = self.sess.run(self.baseline_prediction, feed_dict={self.sy_obs_no:obs_no})
+            b_n = b_n * np.std(q_n) + np.mean(q_n)
             adv_n = q_n - b_n 
         else:
             adv_n = q_n.copy()
@@ -169,8 +185,8 @@ class Agent(object):
     
     def update_parameters(self, obs_no, act_na, q_n, adv_n):
         if self.nn_baseline:
-            raise NotImplementedError
+            target_n = self.compute_advantage(obs_no, q_n)
+            self.sess.run([self.baseline_update_op], feed_dict={self.sy_target_n:target_n, self.sy_obs_no:obs_no})
         feed_dict = {self.sy_obs_no: obs_no, self.sy_act_na: act_na, self.sy_adv_n: adv_n}
         self.sess.run([self.update_op], feed_dict=feed_dict)
-    
-    
+        

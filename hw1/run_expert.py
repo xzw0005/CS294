@@ -6,8 +6,8 @@ import gym
 
 import argparse
 
-import hw1.tf_util as tf_util
-from hw1.load_policy import load_policy
+import tf_util as tf_util
+from load_policy import load_policy
 
 def main():
     parser = argparse.ArgumentParser()

@@ -1,5 +1,5 @@
 import pickle, tensorflow as tf, numpy as np
-import hw1.tf_util as tf_util
+import tf_util
 
 def load_policy(filename):
     with open(filename, 'rb') as f:
