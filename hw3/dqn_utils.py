@@ -25,6 +25,7 @@ class Schedule(object):
         raise NotImplementedError
     
 class ConstantSchedule(object):
+    """Value remains constant over time."""
     def __init__(self, value):
         self.v = value 
         
