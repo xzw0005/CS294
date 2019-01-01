@@ -209,7 +209,7 @@ class Agent(object):
      
     
 def train_PG(exp_name, env_name, n_iter, \
-             gamma, mint_timesteps_per_batch, max_path_length, learning_rate, \
+             gamma, min_timesteps_per_batch, max_path_length, learning_rate, \
              reward_to_go, animate, logdir, normalize_advantages, nn_baseline, \
              seed, n_layers, size):
     start = time.time()
@@ -228,7 +228,7 @@ def train_PG(exp_name, env_name, n_iter, \
     computation_graph_args = {'n_layers': n_layers, 'obs_dim': obs_dim, 'act_dim': act_dim, \
                               'discrete': discrete, 'size': size, 'learning_rate': learning_rate}
     sample_trajectory_args = {'animate': animate, 'max_path_length': max_path_length, \
-                              'min_timesteps_per_batch': mint_timesteps_per_batch}
+                              'min_timesteps_per_batch': min_timesteps_per_batch}
     estimate_return_args = {'gamma': gamma, 'reward_to_go': reward_to_go, \
                             'nn_baseline': nn_baseline, 'normalize_advantages': normalize_advantages}
     agent = Agent(computation_graph_args, sample_trajectory_args, estimate_return_args)
@@ -302,7 +302,7 @@ def main():
         
         def train_func():
             train_PG(exp_name=args.exp_name, env_name=args.env_name, n_iter=args.n_iter, \
-                     gamma=args.discount, mint_timesteps_per_batch=args.batch_size, \
+                     gamma=args.discount, min_timesteps_per_batch=args.batch_size, \
                      max_path_length=max_path_length, learning_rate=args.learning_rate, \
                      reward_to_go=args.reward_to_go, animate=args.render, \
                      logdir=os.path.join(logdir, '%d'%seed), \

@@ -41,6 +41,7 @@ def atari_learn(env, session, num_timesteps):
                                   lr_schedule=lr_schedule )
     def stopping_criterion(env, t):
         return get_wrapper_by_name(env, "Monitor").get_total_steps() >= num_timesteps
+    
     exploration_schedule = PiecewiseSchedule(
                                 [ (0, 1.0), (1e6, 0.1), (num_iterations/2, 0.01) ], 
                                 outside_value=0.01)

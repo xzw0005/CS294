@@ -28,17 +28,24 @@ class NoopResetEnv(gym.Wrapper):
         return obs
 
 class FireResetEnv(gym.Wrapper):
-    def __init__(self, env=None):
+    def __init__(self, env):
         """Take action on reset for environments that are fixed until firing."""
-        super(FireResetEnv, self).__init__(env)
+        gym.Wrapper.__init__(self, env)
         assert env.unwrapped.get_action_meanings()[1] == 'FIRE'
         assert len(env.unwrapped.get_action_meanings()) >= 3
 
-    def _reset(self):
-        self.env.reset()
-        obs, _, _, _ = self.env.step(1)
-        obs, _, _, _ = self.env.step(2)
+    def reset(self, **kwargs):
+        self.env.reset(**kwargs)
+        obs, _, done, _ = self.env.step(1)
+        if done:
+            self.env.reset(**kwargs)
+        obs, _, done, _ = self.env.step(2)
+        if done:
+            self.env.reset(**kwargs)
         return obs
+
+    def step(self, action):
+        return self.env.step(action)
 
 class EpisodicLifeEnv(gym.Wrapper):
     def __init__(self, env=None):
@@ -96,9 +103,7 @@ class MaxAndSkipEnv(gym.Wrapper):
             total_reward += reward
             if done:
                 break
-
         max_frame = np.max(np.stack(self._obs_buffer), axis=0)
-
         return max_frame, total_reward, done, info
 
     def _reset(self):

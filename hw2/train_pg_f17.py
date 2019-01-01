@@ -212,7 +212,7 @@ def main():
                     env_name=args.env_name,
                     n_iter=args.n_iter,
                     gamma = args.discount,
-                    min_steps_per_batch=args.batch_size,
+                    min_timesteps_per_batch=args.batch_size,
                     max_path_length=max_path_length,
                     learning_rate=args.learning_rate,
                     reward_to_go=args.reward_to_go,
